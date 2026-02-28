@@ -257,7 +257,7 @@ static esp_err_t favicon_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t gpio_post_handler(httpd_req_t *req)
+static esp_err_t IRAM_ATTR gpio_post_handler(httpd_req_t *req)
 {
     char buf[100];
     int ret, remaining = req->content_len;
