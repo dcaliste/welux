@@ -173,7 +173,7 @@ struct button_t {
     QueueHandle_t queue;
 };
 
-static struct button_t button_open, button_close;
+static struct button_t button_open, button_close, button_stop;
 
 static bool IRAM_ATTR button_timer_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
 {
@@ -291,6 +291,13 @@ static const httpd_uri_t veluxClose = {
     .user_ctx  = &button_close
 };
 
+static const httpd_uri_t veluxStop = {
+    .uri       = "/api/velux/stop",
+    .method    = HTTP_POST,
+    .handler   = gpio_post_handler,
+    .user_ctx  = &button_stop
+};
+
 static esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Unknown URL on this server.");
@@ -310,6 +317,7 @@ static httpd_handle_t start_webserver(void)
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &veluxOpen);
         httpd_register_uri_handler(server, &veluxClose);
+        httpd_register_uri_handler(server, &veluxStop);
         httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, http_404_error_handler);
         return server;
     }
@@ -339,8 +347,9 @@ void app_main(void)
 
     QueueHandle_t buttonQueue = xQueueCreate(1, sizeof(struct button_t*));
 
-    button_timer_init(&button_open, GPIO_NUM_15, 500);
-    button_timer_init(&button_close, GPIO_NUM_4, 500);
+    button_timer_init(&button_open, GPIO_NUM_5, 500, buttonQueue); // D5
+    button_timer_init(&button_stop, GPIO_NUM_17, 500, buttonQueue); // TX2
+    button_timer_init(&button_close, GPIO_NUM_16, 500, buttonQueue); // RX2
 
     /* Debug onboard led */
     ESP_ERROR_CHECK(gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT));
