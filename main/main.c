@@ -234,6 +234,28 @@ static void disconnect_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
+static esp_err_t index_get_handler(httpd_req_t *req)
+{
+    extern const unsigned char index_start[] asm("_binary_velux_index_html_start");
+    extern const unsigned char index_end[]   asm("_binary_velux_index_html_end");
+    const size_t index_size = (index_end - index_start);
+    ESP_LOGI(TAG, "%s: size %ld", req->uri, index_size);
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_send(req, (const char *)index_start, index_size);
+    return ESP_OK;
+}
+
+static esp_err_t favicon_get_handler(httpd_req_t *req)
+{
+    extern const unsigned char fav_start[] asm("_binary_favicon_png_start");
+    extern const unsigned char fav_end[]   asm("_binary_favicon_png_end");
+    const size_t fav_size = (fav_end - fav_start);
+    ESP_LOGI(TAG, "%s: size %ld", req->uri, fav_size);
+    httpd_resp_set_type(req, "image/png");
+    httpd_resp_send(req, (const char *)fav_start, fav_size);
+    return ESP_OK;
+}
+
 static esp_err_t gpio_post_handler(httpd_req_t *req)
 {
     char buf[100];
@@ -289,6 +311,27 @@ static const httpd_uri_t veluxStop = {
     .user_ctx  = &button_stop
 };
 
+static const httpd_uri_t veluxControl = {
+    .uri       = "/velux/",
+    .method    = HTTP_GET,
+    .handler   = index_get_handler,
+    .user_ctx  = NULL
+};
+
+static const httpd_uri_t favicon = {
+    .uri       = "/favicon.png",
+    .method    = HTTP_GET,
+    .handler   = favicon_get_handler,
+    .user_ctx  = NULL
+};
+
+static const httpd_uri_t favico = {
+    .uri       = "/favicon.ico",
+    .method    = HTTP_GET,
+    .handler   = favicon_get_handler,
+    .user_ctx  = NULL
+};
+
 static esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Unknown URL on this server.");
@@ -309,6 +352,9 @@ static httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &veluxOpen);
         httpd_register_uri_handler(server, &veluxClose);
         httpd_register_uri_handler(server, &veluxStop);
+        httpd_register_uri_handler(server, &veluxControl);
+        httpd_register_uri_handler(server, &favicon);
+        httpd_register_uri_handler(server, &favico);
         httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, http_404_error_handler);
         return server;
     }

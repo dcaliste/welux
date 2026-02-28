@@ -1,0 +1,35 @@
+<?doctype HTML>
+<html>
+  <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <script>
+      function submitAction(e, action) {
+          e.preventDefault();
+ 
+          fetch(action, {
+              method: "POST",
+              body: "",
+          })
+              .then(response => {
+                  if (!response.ok) {
+                      throw new Error('network returns error');
+                  }
+                  return response.json();
+              })
+              .then((resp) => {
+                  console.log("resp from server ", resp);
+              })
+              .catch((error) => {
+                  // Handle error
+                  console.log("error ", error);
+              });
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Lou's Velux controller</h1>
+    <form onsubmit="submitAction(event, '/api/velux/open')">
+      <button type="submit">open</button>
+    </form>
+  </body>
+</html>
