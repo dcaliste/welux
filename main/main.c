@@ -43,6 +43,7 @@
 #include "driver/gptimer.h"
 
 #include <esp_http_server.h>
+#include <mdns.h>
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
@@ -381,6 +382,10 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Welux");
     wifi_init_sta();
+
+    ESP_ERROR_CHECK(mdns_init());
+    ESP_ERROR_CHECK(mdns_hostname_set("lou"));
+    ESP_ERROR_CHECK(mdns_instance_name_set("Velux controller"));
 
     QueueHandle_t buttonQueue = xQueueCreate(1, sizeof(struct button_t*));
 
