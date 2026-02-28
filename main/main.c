@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/queue.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -169,6 +170,7 @@ void wifi_init_sta(void)
 struct button_t {
     gpio_num_t gpio_num;
     gptimer_handle_t timer;
+    QueueHandle_t queue;
 };
 
 static struct button_t button_open, button_close;
@@ -178,12 +180,22 @@ static bool IRAM_ATTR button_timer_callback(gptimer_handle_t timer, const gptime
     struct button_t *button = (struct button_t*)user_ctx;
     ESP_ERROR_CHECK(gptimer_stop(button->timer));
     ESP_ERROR_CHECK(gptimer_disable(button->timer));
-    ESP_ERROR_CHECK(gpio_set_level(button->gpio_num, 0));
-    ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 0));
-    return false;
+
+    BaseType_t high_task_awoken = pdFALSE;
+    xQueueSendFromISR(button->queue, &button, &high_task_awoken);
+    return (high_task_awoken == pdTRUE);
 }
 
-static void button_timer_init(struct button_t *button, gpio_num_t gpio_num, uint duration)
+static void button_release(struct button_t *button)
+{
+    ESP_LOGI(TAG, "Button release");
+    ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_INPUT));
+    ESP_ERROR_CHECK(gpio_set_pull_mode(button->gpio_num, GPIO_FLOATING));
+
+    ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 0));
+}
+
+static void button_timer_init(struct button_t *button, gpio_num_t gpio_num, uint duration, QueueHandle_t queue)
 {
     ESP_ERROR_CHECK(gpio_set_direction(gpio_num, GPIO_MODE_OUTPUT));
     button->gpio_num = gpio_num;
@@ -204,6 +216,10 @@ static void button_timer_init(struct button_t *button, gpio_num_t gpio_num, uint
         .flags.auto_reload_on_alarm = false, // disable auto-reload
     };
     ESP_ERROR_CHECK(gptimer_set_alarm_action(button->timer, &alarmCfg));
+    button->queue = queue;
+
+    ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_INPUT));
+    ESP_ERROR_CHECK(gpio_set_pull_mode(button->gpio_num, GPIO_FLOATING));
 }
 
 /* An HTTP POST handler */
@@ -248,11 +264,13 @@ static esp_err_t gpio_post_handler(httpd_req_t *req)
         ESP_LOGI(TAG, "%s: %.*s", req->uri, ret, buf);
     }
 
+    ESP_LOGI(TAG, "%s: Button press", req->uri);
     struct button_t *button = (struct button_t*)req->user_ctx;
+    ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_OUTPUT));
+    ESP_ERROR_CHECK(gpio_set_level(button->gpio_num, 0));
+    ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 1));
     ESP_ERROR_CHECK(gptimer_enable(button->timer));
     ESP_ERROR_CHECK(gptimer_start(button->timer));
-    ESP_ERROR_CHECK(gpio_set_level(button->gpio_num, 1));
-    ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 1));
 
     // End response
     httpd_resp_send_chunk(req, NULL, 0);
@@ -260,14 +278,14 @@ static esp_err_t gpio_post_handler(httpd_req_t *req)
 }
 
 static const httpd_uri_t veluxOpen = {
-    .uri       = "/api/lou/velux/open",
+    .uri       = "/api/velux/open",
     .method    = HTTP_POST,
     .handler   = gpio_post_handler,
     .user_ctx  = &button_open
 };
 
 static const httpd_uri_t veluxClose = {
-    .uri       = "/api/lou/velux/close",
+    .uri       = "/api/velux/close",
     .method    = HTTP_POST,
     .handler   = gpio_post_handler,
     .user_ctx  = &button_close
@@ -319,6 +337,8 @@ void app_main(void)
     ESP_LOGI(TAG, "Welux");
     wifi_init_sta();
 
+    QueueHandle_t buttonQueue = xQueueCreate(1, sizeof(struct button_t*));
+
     button_timer_init(&button_open, GPIO_NUM_15, 500);
     button_timer_init(&button_close, GPIO_NUM_4, 500);
 
@@ -335,6 +355,9 @@ void app_main(void)
     server = start_webserver();
 
     while (server) {
-        sleep(5);
+        struct button_t *button;
+        if (xQueueReceive(buttonQueue, &button, pdMS_TO_TICKS(50))) {
+            button_release(button);
+        }
     }
 }
