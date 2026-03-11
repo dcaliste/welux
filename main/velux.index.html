@@ -14,10 +14,8 @@
                   if (!response.ok) {
                       throw new Error('network returns error');
                   }
+                  location.reload()
                   return response.json();
-              })
-              .then((resp) => {
-                  console.log("resp from server ", resp);
               })
               .catch((error) => {
                   // Handle error
@@ -36,8 +34,13 @@
   <body>
     <h1>Lou's Velux controller</h1>
     <form onsubmit="submitAction(event, '/api/velux/open')">
-      <button type="submit">open</button>
+      <input type="submit" value="open" />
     </form>
+    <form onsubmit="submitAction(event, '/api/velux/close')">
+      <input type="submit" value="close" />
+    </form>
+    <h2>Logs</h2>
+    <!-- %%LOGS%% -->
     <p class="footer">Firmware <!-- %%VERSION%% --></p>
   </body>
 </html>
