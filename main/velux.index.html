@@ -25,11 +25,19 @@
               });
       }
     </script>
+    <style>
+      p.footer {
+          text-align: center;
+          font-size: 80%;
+          font-style: italic;
+      }
+    </style>
   </head>
   <body>
     <h1>Lou's Velux controller</h1>
     <form onsubmit="submitAction(event, '/api/velux/open')">
       <button type="submit">open</button>
     </form>
+    <p class="footer">Firmware <!-- %%VERSION%% --></p>
   </body>
 </html>
