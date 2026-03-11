@@ -32,6 +32,7 @@
 #include "webserver.h"
 #include "logging.h"
 #include "config.h"
+#include "ota.h"
 
 #include <esp_netif_sntp.h>
 #include <esp_sntp.h>
@@ -131,6 +132,21 @@ static esp_err_t index_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t control_get_handler(httpd_req_t *req)
+{
+    extern const unsigned char ctrl_start[] asm("_binary_control_index_html_start");
+    extern const unsigned char ctrl_end[]   asm("_binary_control_index_html_end");
+    int len = (ctrl_end - ctrl_start);
+
+    ESP_LOGI(TAG, "%s", req->uri);
+    httpd_resp_set_type(req, "text/html");
+    const char *end = insert_version(req, (const char*)ctrl_start, &len);
+    httpd_resp_send_chunk(req, end, len);
+    httpd_resp_send_chunk(req, NULL, 0);
+
+    return ESP_OK;
+}
+
 static esp_err_t favicon_get_handler(httpd_req_t *req)
 {
     extern const unsigned char fav_start[] asm("_binary_favicon_png_start");
@@ -171,6 +187,76 @@ static esp_err_t gpio_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t firmware_post_handler(httpd_req_t *req)
+{
+    char buf[1024], ct[128];
+    int ret, remaining = req->content_len;
+    esp_ota_handle_t update_handle = 0;
+    const esp_partition_t *update_partition = NULL;
+    int binary_file_length = 0;
+
+    ESP_LOGI(TAG, "%s: content-length: %d", req->uri, req->content_len);
+    if (httpd_req_get_hdr_value_str(req, "Content-Type", ct, sizeof(ct)) == ESP_OK) {
+        char *boundary = memmem(ct, sizeof(ct), "boundary=", 9);
+        if (boundary) {
+            ESP_LOGI(TAG, "boundary: '%s'", boundary + 9);
+            remaining -= strlen(boundary + 9) + 8;
+        }
+    }
+    while (remaining > 0) {
+        /* Read the data for the request */
+        if ((ret = httpd_req_recv(req, buf,
+                                  MIN(remaining, sizeof(buf)))) <= 0) {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                /* Retry receiving if timeout occurred */
+                continue;
+            }
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive file");
+            return ESP_FAIL;
+        }
+        remaining -= ret;
+
+        if (!update_handle) {
+            char *cr = memmem(buf, ret, "\r\n\r\n", 4);
+            int len = cr - buf;
+            ret = ret - len - 4;
+            memmove(buf, cr + 4, ret);
+            update_partition = esp_ota_get_next_update_partition(NULL);
+            update_handle = ota_init(update_partition, buf, ret);
+            if (!update_handle) {
+                httpd_resp_send_chunk(req, NULL, 0);
+                return ESP_FAIL;
+            }
+        }
+        esp_err_t err = esp_ota_write(update_handle, (const void *)buf, ret);
+        if (err != ESP_OK) {
+            httpd_resp_send_chunk(req, NULL, 0);
+            return ESP_FAIL;
+        }
+        binary_file_length += ret;
+        ESP_LOGD(TAG, "Written image length %d", binary_file_length);
+    }
+    ESP_LOGI(TAG, "Total Write binary data length: %d", binary_file_length);
+
+    if (ota_finalise(update_handle, update_partition) != ESP_OK) {
+        httpd_resp_send_chunk(req, NULL, 0);
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_status(req, "303 See Other");
+    httpd_resp_set_hdr(req, "Location", "/velux/");
+    httpd_resp_set_hdr(req, "Connection", "close");
+    httpd_resp_sendstr(req, "File uploaded successfully");
+
+    ESP_LOGI(TAG, "Prepare to restart the system!");
+    bool restart = true;
+    if (xQueueSendToBack(req->user_ctx, (void*)&restart, (TickType_t)100) != pdPASS) {
+        ESP_LOGW(TAG, "Failed to post the restart message.");
+    }
+
+    return ESP_OK;
+}
+
 static httpd_uri_t veluxOpen = {
     .uri       = "/api/velux/open",
     .method    = HTTP_POST,
@@ -194,6 +280,19 @@ static const httpd_uri_t veluxControl = {
     .method    = HTTP_GET,
     .handler   = index_get_handler,
     .user_ctx  = NULL
+};
+
+static const httpd_uri_t espControl = {
+    .uri       = "/control/",
+    .method    = HTTP_GET,
+    .handler   = control_get_handler,
+    .user_ctx  = NULL
+};
+
+static httpd_uri_t firmwareUpdate = {
+    .uri       = "/control/firmware_update.html",
+    .method    = HTTP_POST,
+    .handler   = firmware_post_handler,
 };
 
 static const httpd_uri_t favicon = {
@@ -236,14 +335,16 @@ static void time_set_handler(struct timeval *tv)
 
 httpd_handle_t start_webserver(struct button_t *button_open,
                                struct button_t *button_stop,
-                               struct button_t *button_close)
+                               struct button_t *button_close,
+                               QueueHandle_t queue)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.stack_size = 20480;
     config.lru_purge_enable = true;
 
     init_log();
-    
+
     /* Need local time for logging. */
     setenv("TZ", "CEST-02:00:00CEDT-01:00:00,M10.5.0,M3.5.0", 1);
     tzset();
@@ -263,6 +364,9 @@ httpd_handle_t start_webserver(struct button_t *button_open,
         veluxStop.user_ctx = button_stop;
         httpd_register_uri_handler(server, &veluxStop);
         httpd_register_uri_handler(server, &veluxControl);
+        httpd_register_uri_handler(server, &espControl);
+        firmwareUpdate.user_ctx = queue;
+        httpd_register_uri_handler(server, &firmwareUpdate);
         httpd_register_uri_handler(server, &favicon);
         httpd_register_uri_handler(server, &favico);
         httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, http_404_error_handler);

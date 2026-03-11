@@ -86,12 +86,19 @@ void app_main(void)
                                                &disconnect_handler, &server));
 
     /* Start the server for the first time */
-    server = start_webserver(&button_open, &button_stop, &button_close);
+    QueueHandle_t serverQueue = xQueueCreate(1, sizeof(bool));
+    server = start_webserver(&button_open, &button_stop, &button_close, serverQueue);
 
     while (server) {
         struct button_t *button;
         if (xQueueReceive(buttonQueue, &button, pdMS_TO_TICKS(50))) {
             button_release(button);
+        }
+        bool restart;
+        if (xQueueReceive(serverQueue, &restart, (TickType_t)100)) {
+            ESP_LOGI(TAG, "Received restart request.");
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            esp_restart();
         }
     }
 }

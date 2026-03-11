@@ -1,0 +1,16 @@
+<?doctype HTML>
+<html>
+  <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
+  </head>
+  <body>
+    <h1><a href="/velux/">Lou's Velux controller</a> - status page</h1>
+    <form action="/control/firmware_update.html" method="POST" enctype="multipart/form-data">
+      <h2>Firmware update</h2>
+      <p>Current firmware version: <!-- %%VERSION%% --></p>
+      <label for="firmwareChooser">New firmware: </label>
+      <input type="file" id="firmware" name="firmwareChooser" accept=".bin" />
+      <input type="submit" value="Update"/>
+    </form>
+  </body>
+</html>

@@ -29,19 +29,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef WEBSERVER_H
-#define WEBSERVER_H
+#ifndef OTA_H
+#define OTA_H
 
-#include <esp_http_server.h>
+#include <esp_ota_ops.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-
-#include "button.h"
-
-httpd_handle_t start_webserver(struct button_t *openButton,
-                               struct button_t *stopButton,
-                               struct button_t *closeButton,
-                               QueueHandle_t queue);
+esp_ota_handle_t ota_init(const esp_partition_t *partition, const char *buf, int len);
+esp_err_t ota_finalise(esp_ota_handle_t handle, const esp_partition_t *partition);
 
 #endif
