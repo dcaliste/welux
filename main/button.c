@@ -32,18 +32,12 @@
 #include "button.h"
 #include "logging.h"
 
-static bool IRAM_ATTR button_timer_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
+static void button_timer_callback(void *arg)
 {
-    struct button_t *button = (struct button_t*)user_ctx;
-    ESP_ERROR_CHECK(gptimer_stop(button->timer));
-    ESP_ERROR_CHECK(gptimer_disable(button->timer));
-
-    BaseType_t high_task_awoken = pdFALSE;
-    xQueueSendFromISR(button->queue, &button, &high_task_awoken);
-    return (high_task_awoken == pdTRUE);
+    button_release((struct button_t*)arg);
 }
 
-void IRAM_ATTR button_press(struct button_t *button)
+void button_press(struct button_t *button)
 {
     ESP_LOGI(TAG, "Button press");
     ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_OUTPUT));
@@ -51,12 +45,10 @@ void IRAM_ATTR button_press(struct button_t *button)
 
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 1));
 
-    ESP_ERROR_CHECK(gptimer_enable(button->timer));
-    ESP_ERROR_CHECK(gptimer_set_raw_count(button->timer, 0)); 
-    ESP_ERROR_CHECK(gptimer_start(button->timer));
+    ESP_ERROR_CHECK(esp_timer_start_once(button->timer, button->duration));
 }
 
-void IRAM_ATTR button_release(struct button_t *button)
+void button_release(struct button_t *button)
 {
     ESP_LOGI(TAG, "Button release");
     ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_INPUT));
@@ -65,29 +57,17 @@ void IRAM_ATTR button_release(struct button_t *button)
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 0));
 }
 
-void button_init(struct button_t *button, gpio_num_t gpio_num, unsigned int duration, QueueHandle_t queue)
+void button_init(struct button_t *button, gpio_num_t gpio_num, unsigned int duration)
 {
-    ESP_ERROR_CHECK(gpio_set_direction(gpio_num, GPIO_MODE_OUTPUT));
     button->gpio_num = gpio_num;
-    /* Button emulator timer */
-    gptimer_config_t buttonCfg = {
-        .clk_src = GPTIMER_CLK_SRC_DEFAULT,
-        .direction = GPTIMER_COUNT_UP,
-        .resolution_hz = 10000,
-    };
-    ESP_ERROR_CHECK(gptimer_new_timer(&buttonCfg, &button->timer));
-    gptimer_event_callbacks_t buttonCallback = {
-        .on_alarm = button_timer_callback,
-    };
-    ESP_ERROR_CHECK(gptimer_register_event_callbacks(button->timer, &buttonCallback, button));
-    gptimer_alarm_config_t alarmCfg = {
-        .reload_count = 0, // counter will reload with 0 on alarm event
-        .alarm_count = 10 * duration, // period = 100ms @resolution 10kHz
-        .flags.auto_reload_on_alarm = false, // disable auto-reload
-    };
-    ESP_ERROR_CHECK(gptimer_set_alarm_action(button->timer, &alarmCfg));
-    button->queue = queue;
-
     ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_INPUT));
     ESP_ERROR_CHECK(gpio_set_pull_mode(button->gpio_num, GPIO_FLOATING));
+
+    const esp_timer_create_args_t timer_args = {
+        .callback = &button_timer_callback,
+        .arg = (void*)button,
+        .name = "release"
+    };
+    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &button->timer));
+    button->duration = duration * 1000;
 }

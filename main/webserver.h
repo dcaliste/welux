@@ -34,14 +34,10 @@
 
 #include <esp_http_server.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-
 #include "button.h"
 
 httpd_handle_t start_webserver(struct button_t *openButton,
                                struct button_t *stopButton,
-                               struct button_t *closeButton,
-                               QueueHandle_t queue);
+                               struct button_t *closeButton);
 
 #endif

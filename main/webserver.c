@@ -36,6 +36,7 @@
 
 #include <esp_netif_sntp.h>
 #include <esp_sntp.h>
+#include <esp_timer.h>
 
 #include <string.h>
 #include <time.h>
@@ -187,6 +188,15 @@ static esp_err_t gpio_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static void restart_callback(void *arg)
+{
+    esp_timer_handle_t *timer = (esp_timer_handle_t*)arg;
+    esp_timer_delete(*timer);
+
+    ESP_LOGI(TAG, "Received restart request.");
+    esp_restart();
+}
+
 static esp_err_t firmware_post_handler(httpd_req_t *req)
 {
     char buf[1024], ct[128];
@@ -249,10 +259,14 @@ static esp_err_t firmware_post_handler(httpd_req_t *req)
     httpd_resp_sendstr(req, "File uploaded successfully");
 
     ESP_LOGI(TAG, "Prepare to restart the system!");
-    bool restart = true;
-    if (xQueueSendToBack(req->user_ctx, (void*)&restart, (TickType_t)100) != pdPASS) {
-        ESP_LOGW(TAG, "Failed to post the restart message.");
-    }
+    esp_timer_handle_t timer;
+    const esp_timer_create_args_t timer_args = {
+        .callback = &restart_callback,
+        .arg = (void*)&timer,
+        .name = "restart"
+    };
+    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &timer));
+    ESP_ERROR_CHECK(esp_timer_start_once(timer, 2*1000*1000));
 
     return ESP_OK;
 }
@@ -289,10 +303,11 @@ static const httpd_uri_t espControl = {
     .user_ctx  = NULL
 };
 
-static httpd_uri_t firmwareUpdate = {
+static const httpd_uri_t firmwareUpdate = {
     .uri       = "/control/firmware_update.html",
     .method    = HTTP_POST,
     .handler   = firmware_post_handler,
+    .user_ctx  = NULL
 };
 
 static const httpd_uri_t favicon = {
@@ -335,8 +350,7 @@ static void time_set_handler(struct timeval *tv)
 
 httpd_handle_t start_webserver(struct button_t *button_open,
                                struct button_t *button_stop,
-                               struct button_t *button_close,
-                               QueueHandle_t queue)
+                               struct button_t *button_close)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -365,7 +379,6 @@ httpd_handle_t start_webserver(struct button_t *button_open,
         httpd_register_uri_handler(server, &veluxStop);
         httpd_register_uri_handler(server, &veluxControl);
         httpd_register_uri_handler(server, &espControl);
-        firmwareUpdate.user_ctx = queue;
         httpd_register_uri_handler(server, &firmwareUpdate);
         httpd_register_uri_handler(server, &favicon);
         httpd_register_uri_handler(server, &favico);

@@ -33,19 +33,16 @@
 #define BUTTON_H
 
 #include "driver/gpio.h"
-#include "driver/gptimer.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
+#include "esp_timer.h"
 
 struct button_t {
     gpio_num_t gpio_num;
-    gptimer_handle_t timer;
-    QueueHandle_t queue;
+    esp_timer_handle_t timer;
+    unsigned int duration;
 };
 
 void button_press(struct button_t *button);
 void button_release(struct button_t *button);
-void button_init(struct button_t *button, gpio_num_t gpio_num, unsigned int duration, QueueHandle_t queue);
+void button_init(struct button_t *button, gpio_num_t gpio_num, unsigned int duration);
 
 #endif
