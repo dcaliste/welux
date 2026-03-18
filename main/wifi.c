@@ -32,9 +32,11 @@
 #include "wifi.h"
 #include "logging.h"
 
+#include <unistd.h>
+
 #define WIFI_SSID      CONFIG_ESP_WIFI_SSID
 #define WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
-#define MAXIMUM_RETRY  3
+#define MAXIMUM_RETRY  10
 
 #define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA2_PSK
 #define ESP_WIFI_SAE_MODE WPA3_SAE_PWE_BOTH
@@ -58,6 +60,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         if (s_retry_num < MAXIMUM_RETRY) {
+            usleep((1 << s_retry_num) * 1000 * 1000);
             esp_wifi_connect();
             s_retry_num++;
             ESP_LOGI(TAG, "retry to connect to the AP");
