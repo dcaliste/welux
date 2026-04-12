@@ -39,6 +39,7 @@
 
 #include <nvs_flash.h>
 #include <mdns.h>
+#include <esp_pm.h>
 
 static void disconnect_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
@@ -63,6 +64,13 @@ void app_main(void)
       ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    esp_pm_config_t pm_config = {
+        .max_freq_mhz = 80,
+        .min_freq_mhz = 80,
+        .light_sleep_enable = true
+    };
+    ESP_ERROR_CHECK(esp_pm_configure(&pm_config));
 
     ESP_LOGI(TAG, "Welux");
     wifi_init_sta();
