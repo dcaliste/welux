@@ -185,7 +185,9 @@ static esp_err_t gpio_post_handler(httpd_req_t *req)
     push_log(req->uri);
 
     // End response
-    httpd_resp_send_chunk(req, NULL, 0);
+    httpd_resp_set_status(req, "303 See Other");
+    httpd_resp_set_hdr(req, "Location", "/velux/");
+    httpd_resp_sendstr(req, "Action performed");
     return ESP_OK;
 }
 

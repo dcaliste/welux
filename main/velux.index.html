@@ -2,27 +2,6 @@
 <html>
   <head>
     <link rel="icon" type="image/png" href="/favicon.png">
-    <script>
-      function submitAction(e, action) {
-          e.preventDefault();
- 
-          fetch(action, {
-              method: "POST",
-              body: "",
-          })
-              .then(response => {
-                  if (!response.ok) {
-                      throw new Error('network returns error');
-                  }
-                  location.reload()
-                  return response.json();
-              })
-              .catch((error) => {
-                  // Handle error
-                  console.log("error ", error);
-              });
-      }
-    </script>
     <style>
       p.footer {
           text-align: center;
@@ -33,14 +12,14 @@
   </head>
   <body>
     <h1>Lou's Velux controller</h1>
-    <form onsubmit="submitAction(event, '/api/velux/open')">
+    <form action="/api/velux/open" method="POST">
       <input type="submit" value="open" />
     </form>
-    <form onsubmit="submitAction(event, '/api/velux/close')">
+    <form action="/api/velux/close" method="POST">
       <input type="submit" value="close" />
     </form>
     <h2>Logs</h2>
     <!-- %%LOGS%% -->
-    <p class="footer">Firmware <!-- %%VERSION%% --></p>
+    <p class="footer">Firmware <!-- %%VERSION%% --> - <a href="/control/">control page</a></p>
   </body>
 </html>
