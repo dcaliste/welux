@@ -5,6 +5,3 @@ idf_component_register(SRCS main.c wifi.c button.c webserver.c ota.c
                     INCLUDE_DIRS "."
                     EMBED_FILES favicon.png
                     EMBED_TXTFILES velux.index.html control.index.html)
-
-configure_file(config.h.in config.h)
-target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")

@@ -37,4 +37,6 @@
 esp_ota_handle_t ota_init(const esp_partition_t *partition, const char *buf, int len);
 esp_err_t ota_finalise(esp_ota_handle_t handle, const esp_partition_t *partition);
 
+esp_err_t firmware_version(char buf[], size_t len);
+
 #endif

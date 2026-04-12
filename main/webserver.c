@@ -31,7 +31,6 @@
 
 #include "webserver.h"
 #include "logging.h"
-#include "config.h"
 #include "ota.h"
 
 #include <esp_netif_sntp.h>
@@ -104,11 +103,13 @@ static const char* insert_version(httpd_req_t *req, const char *page, int *len)
 {
     const char tag[] = "<!-- %%VERSION%% -->";
     const char *vtag = memmem(page, *len, tag, sizeof(tag) - 1);
+    char version[16];
 
     if (vtag) {
         int part_len = vtag - page;
         httpd_resp_send_chunk(req, (const char *)page, part_len);
-        httpd_resp_send_chunk(req, WELUX_VERSION, sizeof(WELUX_VERSION) - 1);
+        ESP_ERROR_CHECK(firmware_version(version, sizeof(version)));
+        httpd_resp_sendstr_chunk(req, version);
         *len -= part_len + sizeof(tag) - 1;
         return vtag + sizeof(tag) - 1;
     } else {
