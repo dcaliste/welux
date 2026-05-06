@@ -134,7 +134,6 @@ esp_err_t firmware_version(char buf[], size_t len)
     esp_app_desc_t running_app_info;
     esp_err_t status = esp_ota_get_partition_description(running, &running_app_info);
     if (status == ESP_OK) {
-        ESP_LOGI(TAG, "Running firmware version: %s", running_app_info.version);
         strncpy(buf, running_app_info.version, len);
     }
     return status;

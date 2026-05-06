@@ -35,14 +35,30 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 
+enum push_level_t {
+    LOW,
+    HIGH
+};
+
 struct button_t {
     gpio_num_t gpio_num;
     esp_timer_handle_t timer;
+    enum push_level_t level;
     unsigned int duration;
 };
 
 void button_press(struct button_t *button);
 void button_release(struct button_t *button);
-void button_init(struct button_t *button, gpio_num_t gpio_num, unsigned int duration);
+void button_init(struct button_t *button, gpio_num_t gpio_num, enum push_level_t level, unsigned int duration);
+
+struct remote_t {
+    const char *label;
+    struct button_t open;
+    struct button_t stop;
+    struct button_t close;
+};
+
+void remote_init(struct remote_t *remote, const char *label, enum push_level_t level, unsigned int duration,
+                 gpio_num_t openNum, gpio_num_t stopNum, gpio_num_t closeNum);
 
 #endif

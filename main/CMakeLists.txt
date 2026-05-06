@@ -4,4 +4,4 @@ idf_component_register(SRCS main.c wifi.c button.c webserver.c ota.c
                     PRIV_REQUIRES ${requires}
                     INCLUDE_DIRS "."
                     EMBED_FILES favicon.png
-                    EMBED_TXTFILES velux.index.html control.index.html)
+                    EMBED_TXTFILES remotes.index.html control.index.html)

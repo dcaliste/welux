@@ -36,8 +36,7 @@
 
 #include "button.h"
 
-httpd_handle_t start_webserver(struct button_t *openButton,
-                               struct button_t *stopButton,
-                               struct button_t *closeButton);
+httpd_handle_t start_webserver(void);
+void add_remote(httpd_handle_t *server, struct remote_t *remote);
 
 #endif

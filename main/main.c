@@ -76,14 +76,10 @@ void app_main(void)
     wifi_init_sta();
 
     ESP_ERROR_CHECK(mdns_init());
-    ESP_ERROR_CHECK(mdns_hostname_set("lou"));
-    ESP_ERROR_CHECK(mdns_instance_name_set("Velux controller"));
-
-    struct button_t button_open, button_close, button_stop;
-
-    button_init(&button_open, GPIO_NUM_5, 500); // D5
-    button_init(&button_stop, GPIO_NUM_17, 500); // TX2
-    button_init(&button_close, GPIO_NUM_16, 500); // RX2
+    /* ESP_ERROR_CHECK(mdns_hostname_set("lou")); */
+    /* ESP_ERROR_CHECK(mdns_instance_name_set("Velux controller")); */
+    ESP_ERROR_CHECK(mdns_hostname_set("home"));
+    ESP_ERROR_CHECK(mdns_instance_name_set("Home controller"));
 
     /* Debug onboard led */
     ESP_ERROR_CHECK(gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT));
@@ -93,7 +89,27 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED,
                                                &disconnect_handler, &server));
 
-    server = start_webserver(&button_open, &button_stop, &button_close);
+    server = start_webserver();
+
+    /* struct remote_t velux; */
+    /* remote_init(&velux, "velux", LOW, 500, */
+    /*             GPIO_NUM_5,   // D5 */
+    /*             GPIO_NUM_17,  // TX2 */
+    /*             GPIO_NUM_16); // RX2 */
+    /* add_remote(server, &velux); */
+
+    struct remote_t shutter1;
+    remote_init(&shutter1, "Bay window shutter", HIGH, 500,
+                GPIO_NUM_18,  // D18
+                GPIO_NUM_19,  // D19
+                GPIO_NUM_21); // D21
+    add_remote(server, &shutter1);
+    struct remote_t shutter2;
+    remote_init(&shutter2, "Sliding window shutter", HIGH, 500,
+                GPIO_NUM_25,  // D25
+                GPIO_NUM_26,  // D26
+                GPIO_NUM_27); // D27
+    add_remote(server, &shutter2);
 
     while (server) {
         usleep(10000000);

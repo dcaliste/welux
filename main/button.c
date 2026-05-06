@@ -41,7 +41,7 @@ void button_press(struct button_t *button)
 {
     ESP_LOGI(TAG, "Button press");
     ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_OUTPUT));
-    ESP_ERROR_CHECK(gpio_set_level(button->gpio_num, 0));
+    ESP_ERROR_CHECK(gpio_set_level(button->gpio_num, button->level == HIGH ? 1 : 0));
 
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 1));
 
@@ -52,16 +52,16 @@ void button_release(struct button_t *button)
 {
     ESP_LOGI(TAG, "Button release");
     ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_set_pull_mode(button->gpio_num, GPIO_FLOATING));
 
     ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 0));
 }
 
-void button_init(struct button_t *button, gpio_num_t gpio_num, unsigned int duration)
+void button_init(struct button_t *button, gpio_num_t gpio_num, enum push_level_t level, unsigned int duration)
 {
     button->gpio_num = gpio_num;
+    button->level = level;
+    ESP_ERROR_CHECK(gpio_set_pull_mode(button->gpio_num, level == HIGH ? GPIO_PULLDOWN_ONLY : GPIO_PULLUP_ONLY));
     ESP_ERROR_CHECK(gpio_set_direction(button->gpio_num, GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_set_pull_mode(button->gpio_num, GPIO_FLOATING));
 
     const esp_timer_create_args_t timer_args = {
         .callback = &button_timer_callback,
@@ -70,4 +70,13 @@ void button_init(struct button_t *button, gpio_num_t gpio_num, unsigned int dura
     };
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &button->timer));
     button->duration = duration * 1000;
+}
+
+void remote_init(struct remote_t *remote, const char *label, enum push_level_t level, unsigned int duration,
+                 gpio_num_t openNum, gpio_num_t stopNum, gpio_num_t closeNum)
+{
+    remote->label = label;
+    button_init(&remote->open, openNum, level, duration);
+    button_init(&remote->stop, stopNum, level, duration);
+    button_init(&remote->close, closeNum, level, duration);
 }
