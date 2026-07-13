@@ -226,6 +226,16 @@ static esp_err_t firmware_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t root_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "303 See Other");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Connection", "close");
+    httpd_resp_sendstr(req, "Root default redirection");
+
+    return ESP_OK;
+}
+
 #define MAX_REMOTES 3
 struct remote_t* _remotes[MAX_REMOTES];
 unsigned int _nRemotes = 0;
@@ -326,6 +336,13 @@ static const httpd_uri_t remoteControl = {
     .user_ctx  = NULL
 };
 
+static const httpd_uri_t root = {
+    .uri       = "/",
+    .method    = HTTP_GET,
+    .handler   = root_get_handler,
+    .user_ctx  = NULL
+};
+
 static esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Unknown URL on this server.");
@@ -362,6 +379,7 @@ httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &favico);
         httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, http_404_error_handler);
         httpd_register_uri_handler(server, &remoteControl);
+        httpd_register_uri_handler(server, &root);
 
         return server;
     }
