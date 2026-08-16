@@ -229,7 +229,7 @@ static esp_err_t firmware_post_handler(httpd_req_t *req)
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_status(req, "303 See Other");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/remotes/");
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_sendstr(req, "Root default redirection");
 
