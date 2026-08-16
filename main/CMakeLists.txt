@@ -1,6 +1,6 @@
-set(requires esp-tls nvs_flash esp_netif esp_http_server esp_driver_gpio esp_wifi esp_timer mdns app_update esp_pm)
+set(requires esp-tls nvs_flash esp_netif esp_http_server esp_driver_gpio esp_wifi esp_timer mdns app_update esp_pm esp_driver_i2c)
 
-idf_component_register(SRCS main.c wifi.c button.c webserver.c ota.c
+idf_component_register(SRCS main.c wifi.c button.c webserver.c ota.c bme280.c
                     PRIV_REQUIRES ${requires}
                     INCLUDE_DIRS "."
                     EMBED_FILES favicon.png

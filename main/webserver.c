@@ -543,3 +543,38 @@ static void time_set_handler(struct timeval *tv)
         }
     }
 }
+
+static esp_err_t sensor_get_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "%s", req->uri);
+    httpd_resp_set_type(req, "application/json; charset=utf-8");
+
+    Bme280Device *dev = (Bme280Device*)req->user_ctx;
+    bme280_force_read(dev, BME280_OVERSAMPLING_4x);
+
+    char buf[128];
+    httpd_resp_sendstr_chunk(req, "{\n  \"sensor\": {\n");
+    snprintf(buf, sizeof(buf), "    \"temperature\": {\n      \"value\": %2.2f,\n      \"unit\": \"°C\"\n    },\n", bme280_get_temperature(dev));
+    httpd_resp_sendstr_chunk(req, buf);
+    snprintf(buf, sizeof(buf), "    \"pressure\": {\n      \"value\": %4.3f,\n      \"unit\": \"Pa\"\n    },\n", bme280_get_pressure(dev));
+    httpd_resp_sendstr_chunk(req, buf);
+    snprintf(buf, sizeof(buf), "    \"humidity\": {\n      \"value\": %2.2f,\n      \"unit\": \"%%RH\"\n    }\n", bme280_get_humidity(dev));
+    httpd_resp_sendstr_chunk(req, buf);
+    httpd_resp_sendstr_chunk(req, "  }\n}\n");
+    httpd_resp_send_chunk(req, NULL, 0);
+
+    return ESP_OK;
+}
+
+static httpd_uri_t getSensor = {
+    .uri       = "/api/sensor/",
+    .method    = HTTP_GET,
+    .handler   = sensor_get_handler,
+    .user_ctx  = NULL
+};
+
+void add_sensor(httpd_handle_t *server, Bme280Device *sensor)
+{
+    getSensor.user_ctx = sensor;
+    httpd_register_uri_handler(server, &getSensor);
+}

@@ -36,10 +36,12 @@
 #include "button.h"
 #include "webserver.h"
 #include "logging.h"
+#include "bme280.h"
 
 #include <nvs_flash.h>
 #include <mdns.h>
 #include <esp_pm.h>
+#include <driver/i2c_master.h>
 
 static void disconnect_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
@@ -80,6 +82,8 @@ void app_main(void)
     /* ESP_ERROR_CHECK(mdns_instance_name_set("Velux controller")); */
     ESP_ERROR_CHECK(mdns_hostname_set("home"));
     ESP_ERROR_CHECK(mdns_instance_name_set("Home controller"));
+    /* ESP_ERROR_CHECK(mdns_hostname_set("test")); */
+    /* ESP_ERROR_CHECK(mdns_instance_name_set("Test home controller")); */
 
     /* Debug onboard led */
     ESP_ERROR_CHECK(gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT));
@@ -97,6 +101,7 @@ void app_main(void)
     /*             GPIO_NUM_17,  // TX2 */
     /*             GPIO_NUM_16); // RX2 */
     /* add_remote(server, &velux); */
+    /* add_sensor(server, &dev_handle); */
 
     struct remote_t shutter1;
     remote_init(&shutter1, "Bay window shutter", HIGH, 500,
@@ -110,6 +115,21 @@ void app_main(void)
                 GPIO_NUM_26,  // D26
                 GPIO_NUM_27); // D27
     add_remote(server, &shutter2);
+    i2c_master_bus_handle_t bus_handle;
+    i2c_master_bus_config_t bus_config = {
+        .i2c_port = I2C_NUM_0,
+        .sda_io_num = GPIO_NUM_23, // D23
+        .scl_io_num = GPIO_NUM_22, // D22
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
+    };
+    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_config, &bus_handle));
+    ESP_LOGI(TAG, "I2C initialized successfully");
+
+    Bme280Device dev_handle;
+    bme280_add_to_bus(bus_handle, &dev_handle, 0x76);
+    add_sensor(server, &dev_handle);
 
     while (server) {
         usleep(10000000);

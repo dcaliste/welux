@@ -35,8 +35,10 @@
 #include <esp_http_server.h>
 
 #include "button.h"
+#include "bme280.h"
 
 httpd_handle_t start_webserver(void);
 void add_remote(httpd_handle_t *server, struct remote_t *remote);
+void add_sensor(httpd_handle_t *server, Bme280Device *sensor);
 
 #endif
